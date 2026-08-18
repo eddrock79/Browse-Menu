@@ -8,6 +8,112 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script>
+/*
+ * Customer QR access window
+ *
+ * The printed QR opens the clean address: https://menu.hauntedpubs.co.uk/
+ * A clean visit starts (or restarts) a two-hour window. We then add an
+ * internal marker to the address so refreshing the page does not reset it.
+ * Scanning the printed QR again opens the clean address and starts a fresh
+ * two-hour window. The staff #bar screen is deliberately excluded.
+ */
+(function(){
+  const ACCESS_DURATION_MS = 2 * 60 * 60 * 1000;
+  const REDIRECT_URL = 'https://www.thebansheelabyrinth.com/';
+  const ACCESS_KEY = 'banshee-menu-access-until-v1';
+  const VISIT_MARKER = 'menu_access';
+  let expiryTimer = null;
+  let memoryExpiry = 0;
+
+  function isBarScreen(){
+    return window.location.hash === '#bar';
+  }
+
+  function redirectToWebsite(){
+    window.location.replace(REDIRECT_URL);
+  }
+
+  function readExpiry(){
+    try{
+      const value = Number(window.localStorage.getItem(ACCESS_KEY));
+      return Number.isFinite(value) && value > 0 ? value : memoryExpiry;
+    }catch(error){
+      return memoryExpiry;
+    }
+  }
+
+  function saveExpiry(value){
+    try{
+      window.localStorage.setItem(ACCESS_KEY, String(value));
+      return true;
+    }catch(error){
+      memoryExpiry = value;
+      return false;
+    }
+  }
+
+  function markVisit(){
+    const url = new URL(window.location.href);
+    url.searchParams.set(VISIT_MARKER, 'active');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+  }
+
+  function scheduleExpiry(){
+    if(expiryTimer){
+      window.clearTimeout(expiryTimer);
+      expiryTimer = null;
+    }
+    if(isBarScreen()) return;
+
+    const remaining = readExpiry() - Date.now();
+    if(remaining <= 0){
+      redirectToWebsite();
+      return;
+    }
+
+    // Recheck periodically so returning to a suspended mobile tab still
+    // redirects promptly once its two-hour window has ended.
+    expiryTimer = window.setTimeout(scheduleExpiry, Math.min(remaining, 30000));
+  }
+
+  function initialiseQrAccess(){
+    if(isBarScreen()) return;
+
+    const url = new URL(window.location.href);
+    const isFreshQrVisit = !url.searchParams.has(VISIT_MARKER);
+
+    if(isFreshQrVisit){
+      const expiresAt = Date.now() + ACCESS_DURATION_MS;
+      if(!saveExpiry(expiresAt)){
+        // Storage is unavailable: keep the expiry in the marked URL so the
+        // current open page can still honour the two-hour countdown.
+        url.searchParams.set(VISIT_MARKER, String(expiresAt));
+        window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+      }else{
+        markVisit();
+      }
+    }else if(!readExpiry()){
+      const fallbackExpiry = Number(url.searchParams.get(VISIT_MARKER));
+      if(!Number.isFinite(fallbackExpiry) || fallbackExpiry <= Date.now()){
+        redirectToWebsite();
+        return;
+      }
+      expiryTimer = window.setTimeout(redirectToWebsite, fallbackExpiry - Date.now());
+      return;
+    }
+
+    scheduleExpiry();
+  }
+
+  window.addEventListener('hashchange', scheduleExpiry);
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden) scheduleExpiry();
+  });
+
+  initialiseQrAccess();
+})();
+</script>
 <style>
   :root{
     --bg:#09080A;
