@@ -1439,7 +1439,7 @@ function renderBrowseView(){
       <img class="mb-card-img" src="BL RIP Card.jpg" alt="">
     </button>
     <input type="text" id="search-input" placeholder="Search the menu…" value="${escapeHtml(query)}" oninput="query=this.value; render()">
-    <button class="spin-cta" onclick="openWheel()">Can't Decide? Spin for a Cocktail or Shooter</button>
+    <button class="spin-cta" onclick="openWheel()">Wanna Play a game?</button>
     ${tableSlug
       ? `<div class="table-tag">Ordering for ${escapeHtml(tableLabel)} · <a href="#" onclick="leaveTable(); return false;" style="color:var(--text-dim);">change group</a></div>`
       : `<button class="btn-secondary" style="margin-top:0;" onclick="openJoin()">Start a group order</button>`}
@@ -1596,7 +1596,7 @@ function renderWheelSheet(){
   <div class="sheet">
     <div class="sheet-handle"></div>
     <h2 style="font-size:16px; margin:0 0 4px 0;">Can't Decide?</h2>
-    <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 14px 0;">Spin for a random cocktail or shooter.</p>`;
+    <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 14px 0;">Let the Spirits decide your fate!.</p>`;
 
   if(!wheelSpinning && !landed){
     h += `<div class="wheel-cat-row">`;
@@ -1613,7 +1613,7 @@ function renderWheelSheet(){
   if(!landed) h += `<button class="btn-primary" onclick="spinWheel()" ${wheelSpinning?'disabled':''}>${wheelSpinning?'Spinning…':'Spin'}</button>`;
   else {
     h += `<label class="field-label">Whose is this? (optional)</label>
-    <input type="text" placeholder="e.g. Sarah" value="${escapeHtml(wheelNameInput)}" oninput="wheelNameInput=this.value">
+    <input type="text" placeholder="e.g. One Eye Willie" value="${escapeHtml(wheelNameInput)}" oninput="wheelNameInput=this.value">
     <button class="btn-primary" onclick="addFromWheel()">Add to order</button>
     <button class="btn-secondary" onclick="spinAgain()">Spin again</button>`;
   }
