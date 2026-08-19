@@ -1610,7 +1610,7 @@ function renderWheelSheet(){
   if(!landed) h += `<button class="btn-primary" onclick="spinWheel()" ${wheelSpinning?'disabled':''}>${wheelSpinning?'Spinning…':'Spin'}</button>`;
   else {
     h += `<label class="field-label">Whose is this? (optional)</label>
-    <input type="text" placeholder="e.g. Eddie" value="${escapeHtml(wheelNameInput)}" oninput="wheelNameInput=this.value">
+    <input type="text" placeholder="e.g. Chucky" value="${escapeHtml(wheelNameInput)}" oninput="wheelNameInput=this.value">
     <button class="btn-primary" onclick="addFromWheel()">Add to order</button>
     <button class="btn-secondary" onclick="spinAgain()">Spin again</button>`;
   }
