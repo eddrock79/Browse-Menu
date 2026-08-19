@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Banshee Labyrinth — Drinks Menu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#09080A;
+    --surface:#151116;
+    --surface-2:#1D171E;
+    --violet:#4B2168;
+    --violet-bright:#6B3593;
+    --brass:#C9A15A;
+    --text:#EDE7EA;
+    --text-dim:#A79AA6;
+    --success:#4C8C6B;
+    --danger:#B5453F;
+    --border:#241E27;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    -webkit-tap-highlight-color:transparent;
+  }
+  h1,h2,h3,.display{font-family:'Oswald',sans-serif; letter-spacing:0.02em; text-transform:uppercase;}
+  button{font-family:inherit; cursor:pointer;}
+  input,textarea{font-family:inherit;}
+  ::selection{background:var(--violet); color:var(--text);}
+
+  /* ---------- layout shell ---------- */
+  #app{max-width:640px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; background:var(--bg); position:relative;}
+  header.topbar{
+    padding:16px 16px 0 16px;
+    position:sticky; top:0; z-index:20;
+    background:linear-gradient(180deg, var(--bg) 70%, transparent);
+  }
+  .brand{display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px;}
+  .brand h1{font-size:19px; margin:0; line-height:1.15;}
+  .brand .sub{font-size:11px; color:var(--brass); letter-spacing:0.14em; text-transform:uppercase; margin-top:3px;}
+  .lock-btn{background:none; border:none; color:var(--text-dim); font-size:12px; text-decoration:underline; padding:4px 0; white-space:nowrap;}
+
+  main{flex:1; padding:14px 16px 60px 16px;}
+
+  /* ---------- search + spin cta ---------- */
+  .toolbar{display:flex; flex-direction:column; gap:10px; margin-bottom:14px;}
+  input[type=text],input[type=number],textarea{
+    width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    padding:11px 12px; border-radius:9px; font-size:14.5px;
+  }
+  textarea{resize:vertical; min-height:56px;}
+  .spin-cta{
+    width:100%; padding:13px; border:1px solid var(--violet-bright); border-radius:10px;
+    background:transparent; color:var(--text); font-family:'Oswald',sans-serif; font-size:14px;
+    letter-spacing:0.05em; text-transform:uppercase;
+  }
+  .spin-cta:active{background:var(--violet);}
+
+  /* ---------- category tabs ---------- */
+  .cat-scroll{display:flex; gap:8px; overflow-x:auto; padding:2px 0 12px 0; -webkit-overflow-scrolling:touch;}
+  .cat-scroll::-webkit-scrollbar{display:none;}
+  .cat-pill{
+    flex:0 0 auto; padding:8px 14px; border-radius:999px; border:1px solid var(--border);
+    background:var(--surface); color:var(--text-dim); font-size:13px; font-weight:600; white-space:nowrap;
+  }
+  .cat-pill.active{background:var(--brass); color:#1A1310; border-color:var(--brass);}
+
+  /* ---------- menu items ---------- */
+  .item-card{
+    display:flex; justify-content:space-between; gap:12px;
+    padding:14px 0; border-bottom:1px solid var(--border);
+  }
+  .item-card .info{flex:1; min-width:0;}
+  .item-card .name{font-weight:600; font-size:15px; margin:0 0 3px 0;}
+  .item-card .abv{font-size:11px; color:var(--text-dim); font-weight:500; margin-left:6px;}
+  .item-card .cat-tag{font-size:10.5px; color:var(--brass); text-transform:uppercase; letter-spacing:0.05em;
+    margin-left:8px; border:1px solid var(--border); border-radius:4px; padding:1px 6px;}
+  .item-card .desc{font-size:12.5px; color:var(--text-dim); line-height:1.4; margin:5px 0 0 0;}
+  .item-card .prices{margin-top:7px; display:flex; flex-wrap:wrap; gap:4px 14px;}
+  .item-card .price{font-size:13.5px; color:var(--brass); font-weight:600;}
+  .item-card .price .lbl{color:var(--text-dim); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; margin-right:4px;}
+  .item-card .add-btn{
+    flex:0 0 auto; width:36px; height:36px; border-radius:50%; border:1px solid var(--violet-bright);
+    background:transparent; color:var(--violet-bright); font-size:19px; align-self:center;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .item-card .add-btn:active{background:var(--violet-bright); color:#fff;}
+  .item-card.unavailable{opacity:0.5;}
+  .item-card.unavailable .name{text-decoration:line-through;}
+  .item-card.unavailable .add-btn{border-color:var(--text-dim); color:var(--text-dim);}
+  .unavailable-tag{font-size:10.5px; color:var(--danger); text-transform:uppercase; letter-spacing:0.06em; font-weight:700; margin-left:8px;}
+  .empty-state{color:var(--text-dim); font-size:13.5px; padding:20px 0; text-align:center; line-height:1.5;}
+
+  /* ---------- table order bar + sheet ---------- */
+  .order-bar{position:fixed; bottom:0; left:0; right:0; z-index:30; display:flex; justify-content:center;}
+  .order-bar-inner{
+    width:100%; max-width:640px; margin:0 16px 16px 16px; background:var(--violet-bright);
+    border-radius:14px; padding:13px 16px; display:flex; align-items:center; justify-content:space-between;
+    box-shadow:0 8px 24px rgba(0,0,0,0.5);
+  }
+  .order-bar-inner span{font-weight:600; font-size:14px;}
+  .order-bar-inner .cta{background:#fff; color:var(--violet-bright); border:none; padding:8px 16px; border-radius:8px; font-weight:700; font-size:13px;}
+  .order-line{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border);}
+  .order-line .oinfo{flex:1; min-width:0;}
+  .order-line .oname{font-size:14px; font-weight:600;}
+  .order-line .ovariant{font-size:11.5px; color:var(--text-dim);}
+  .order-line .oprice{font-size:12.5px; color:var(--brass); margin-top:2px;}
+  .qty-ctrl{display:flex; align-items:center; gap:8px;}
+  .qty-ctrl button{width:26px; height:26px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:15px;}
+  .qty-ctrl .qnum{width:18px; text-align:center; font-size:14px; font-weight:600;}
+  .total-row{display:flex; justify-content:space-between; align-items:center; margin-top:16px; font-family:'Oswald',sans-serif; font-size:17px;}
+  .total-row .amt{color:var(--brass);}
+  .table-tag{font-size:11.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em;}
+
+  /* ---------- variant quick-add ---------- */
+  .variant-row{display:flex; flex-direction:column; gap:8px; margin-top:4px;}
+  .variant-row button{
+    display:flex; justify-content:space-between; padding:12px 14px; border-radius:9px;
+    border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:14px; font-weight:600;
+  }
+  .variant-row button span:last-child{color:var(--brass);}
+  .variant-row button:active{border-color:var(--violet-bright);}
+
+  /* ---------- bar kiosk screen ---------- */
+  .bar-header{padding:20px 16px 4px; display:flex; justify-content:space-between; align-items:baseline;}
+  .bar-header h1{font-size:20px; margin:0;}
+  .bar-list{padding:8px 16px 40px;}
+  .bar-card{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:14px;}
+  .bar-card.fresh{border-color:var(--brass);}
+  .bar-card-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;}
+  .bar-card-head .tname{font-family:'Oswald',sans-serif; font-size:18px; letter-spacing:0.02em;}
+  .bar-card-head .telapsed{font-size:11.5px; color:var(--text-dim);}
+  .bar-line{display:flex; justify-content:space-between; font-size:14px; padding:3px 0;}
+  .bar-line .bqty{color:var(--brass); font-weight:700; margin-right:6px;}
+  .bar-for{color:var(--violet-bright); font-weight:600; font-size:12.5px;}
+  .bar-notes{font-size:12.5px; color:var(--text-dim); font-style:italic; margin-top:8px;}
+  .bar-total{display:flex; justify-content:space-between; font-family:'Oswald',sans-serif; font-size:15px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);}
+  .bar-served-btn{width:100%; margin-top:12px; padding:11px; border-radius:9px; border:1px solid var(--success); background:transparent; color:var(--success); font-weight:600; font-size:13px;}
+
+  /* ---------- sheet / modal ---------- */
+  .sheet-backdrop{position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:40;}
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:41;
+    max-width:640px; margin:0 auto; background:var(--surface);
+    border-radius:18px 18px 0 0; padding:20px 18px 24px 18px;
+    max-height:85vh; overflow-y:auto; border-top:1px solid var(--border);
+  }
+  .sheet-handle{width:36px; height:4px; background:var(--border); border-radius:2px; margin:0 auto 16px auto;}
+  .onboard-overlay{
+    position:fixed; inset:0; z-index:55; background:var(--bg);
+    display:flex; flex-direction:column; justify-content:center;
+    padding:40px 26px; overflow-y:auto; max-width:640px; margin:0 auto;
+  }
+  .onboard-mark{font-size:12px; letter-spacing:3px; text-transform:uppercase; color:var(--brass); margin-bottom:10px;}
+  .onboard-overlay h2{font-size:28px; letter-spacing:0.5px; margin:0 0 26px 0; color:var(--text);}
+  .onboard-overlay p{font-size:16.5px; line-height:1.7; color:var(--text); margin:0 0 22px 0;}
+  .onboard-overlay p strong{color:var(--brass);}
+  .onboard-overlay .btn-primary{margin-top:18px;}
+  .field-label{font-size:11.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin:16px 0 6px 0; display:block;}
+  .field-label:first-of-type{margin-top:0;}
+  .price-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .btn-primary{
+    width:100%; margin-top:14px; padding:14px; border:none; border-radius:10px;
+    background:var(--violet-bright); color:#fff; font-family:'Oswald',sans-serif; font-size:15px;
+    letter-spacing:0.05em; text-transform:uppercase;
+  }
+  .btn-secondary{
+    width:100%; margin-top:10px; padding:12px; border:1px solid var(--border); border-radius:10px;
+    background:transparent; color:var(--text-dim); font-size:13.5px;
+  }
+  .btn-danger{
+    width:100%; margin-top:10px; padding:11px; border:1px solid var(--danger); border-radius:10px;
+    background:transparent; color:var(--danger); font-size:13px; font-weight:600;
+  }
+  .btn-ghost{background:transparent; border:none; color:var(--text-dim); font-size:13px; text-decoration:underline; width:100%; text-align:center; margin-top:14px; padding:6px 0;}
+
+  /* ---------- pin gate ---------- */
+  .pin-wrap{display:flex; flex-direction:column; align-items:center; padding:60px 20px 20px 20px; text-align:center;}
+  .pin-wrap p{color:var(--text-dim); font-size:13.5px; max-width:280px; margin:6px 0 22px 0;}
+  .pin-dots{display:flex; gap:12px; margin-bottom:22px;}
+  .pin-dot{width:14px; height:14px; border-radius:50%; border:1.5px solid var(--brass); background:transparent;}
+  .pin-dot.filled{background:var(--brass);}
+  .pin-pad{display:grid; grid-template-columns:repeat(3,64px); gap:14px;}
+  .pin-pad button{
+    width:64px; height:64px; border-radius:50%; border:1px solid var(--border); background:var(--surface);
+    color:var(--text); font-size:20px; font-weight:600;
+  }
+  .pin-pad button:active{background:var(--surface-2);}
+  .pin-pad .clear{color:var(--danger); font-size:13px;}
+
+  /* ---------- menu editor ---------- */
+  .top-actions{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;}
+  .cat-block{margin-bottom:22px;}
+  .cat-block-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .cat-block-head h3{font-size:14.5px; margin:0; color:var(--brass);}
+  .cat-block-head .del-cat{color:var(--danger); font-size:11.5px; background:none; border:none; text-decoration:underline;}
+  .edit-item-row{display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--border); gap:10px;}
+  .edit-item-row .ei-name{font-size:13.5px; font-weight:600;}
+  .edit-item-row .ei-price{font-size:12px; color:var(--brass);}
+  .edit-item-row .ei-actions{display:flex; gap:10px; flex:0 0 auto;}
+  .edit-item-row .ei-actions button{background:none; border:none; color:var(--text-dim); font-size:12px; text-decoration:underline;}
+  .btn-small{padding:9px 14px; border-radius:8px; border:1px solid var(--brass); background:transparent; color:var(--brass); font-size:12.5px; font-weight:600;}
+  .new-cat-row{display:flex; gap:8px; margin-top:6px;}
+  .new-cat-row input{flex:1;}
+  .checkbox-row{display:flex; align-items:center; gap:8px; margin-top:12px; font-size:13px; color:var(--text-dim);}
+  .checkbox-row input{width:auto;}
+
+  /* ---------- wheel ---------- */
+  .wheel-cat-row{display:flex; gap:8px; margin-bottom:16px;}
+  .wheel-cat-row button{flex:1; background:var(--surface-2); border:1px solid var(--border); border-radius:9px; color:var(--text-dim); font-weight:600; font-size:13.5px; padding:10px;}
+  .wheel-cat-row button.active{background:var(--violet); border-color:var(--violet-bright); color:#fff;}
+  .wheel-display{background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:30px 16px; text-align:center; margin-bottom:16px;}
+  .wheel-display.spinning{animation:pulse .12s infinite alternate;}
+  @keyframes pulse{from{opacity:1;}to{opacity:.6;}}
+  .wheel-item-name{font-family:'Oswald',sans-serif; font-size:20px; letter-spacing:0.02em; text-transform:uppercase;}
+  .wheel-item-desc{font-size:12.5px; color:var(--text-dim); margin-top:9px; line-height:1.5;}
+  .wheel-item-price{font-size:13.5px; color:var(--brass); margin-top:8px; font-weight:600;}
+
+  /* ---------- toast ---------- */
+  .toast{
+    position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:60;
+    background:var(--success); color:#fff; padding:10px 18px; border-radius:999px; font-size:13px; font-weight:600;
+    box-shadow:0 6px 18px rgba(0,0,0,0.4);
+  }
+
+  footer{text-align:center; padding:0 16px 24px 16px; font-size:11px; color:var(--text-dim);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ================= DATA HELPERS ================= */
+let idCounter=0;
+function uid(){ return 'i'+(++idCounter); }
+
+function mkDrinks(catId, priceLabels, rows){
+  return rows.map(r=>{
+    const [plu, name, abv, ...prices] = r;
+    return { id: catId+'-'+uid(), plu, name, abv: abv||'', desc:'',
+      prices: priceLabels.map((lbl,i)=> ({label:lbl, value: prices[i]==null?'':prices[i]})).filter(p=>p.value!=='') };
+  });
+}
+function mkPours(catId, rows){
+  return rows.map(r=>{
+    const [plu, name, desc, ...prices] = r;
+    const labels = prices.length>1 ? ['Glass','Pitcher'] : ['Price'];
+    return { id: catId+'-'+uid(), plu, name, abv:'', desc,
+      prices: labels.map((lbl,i)=>({label:lbl, value:prices[i]})) };
+  });
+}
+function mkWine(rows){
+  return rows.map(r=>{
+    const [plu, name, labels, prices] = r;
+    return { id: 'wine-'+uid(), plu, name, abv:'', desc:'',
+      prices: labels.map((lbl,i)=>({label:lbl, value:prices[i]})) };
+  });
+}
+
+function defaultMenu(){
+  idCounter=0;
+  return { categories: [
+    { id:'draught', name:'Draught', items: mkDrinks('draught',["Pint", "Half"],[
+      ['10', 'Joker IPA', '5.0%', 6.2, 3.1],
+      ['27', 'Tennents Lager', '4.0%', 6.0, 3.0],
+      ['28', 'Birra Moretti', '4.6%', 7.5, 3.75],
+      ['29', 'Williams Lager', '5.0%', 6.2, 3.1],
+      ['31', 'Guinness', '4.2%', 7.4, 3.7],
+      ['32', 'Strongbow', '4.5%', 6.0, 3.0],
+      ['33', 'Heineken', '5.0%', 7.4, 3.7],
+      ['34', 'Guest Ale', 'TBC', 6.0, 3.0],
+    ])},
+    { id:'bottled-beer', name:'Bottled Beer', items: mkDrinks('bottled-beer',["Bottle"],[
+      ['1', 'Red Stripe', '4.7%', 5.5],
+      ['4', 'Budweiser', '5.0%', 5.5],
+      ['5', 'Budvar', '5.0%', 6.2],
+      ['11', 'Desperados', '5.9%', 5.9],
+      ['16', 'N.B.A', '', 6.7],
+      ['24', 'Hobgoblin Ruby', '5.0%', 6.4],
+      ['30', 'March of the Penguins', '4.0%', 6.4],
+      ['139', 'Erdinger', '5.3%', 6.7],
+      ['141', 'Leffe', '6.0%', 6.7],
+      ['2043', 'Hobgoblin IPA', '5.3%', 6.4],
+      ['2044', 'Hobgoblin Gold', '4.2%', 6.4],
+      ['2059', 'Seven Giraffes', '5.1%', 6.4],
+      ['2061', 'Corona', '4.5%', 5.8],
+      ['2062', 'Birds & The Bees', '4.3%', 6.4],
+      ['2140', 'Peroni', '5.1%', 6.0],
+      ['2162', 'Red Stripe (Pint Can)', '4.7%', 6.0],
+      ['2219', 'Fraoch', '4.5%', 6.4],
+    ])},
+    { id:'bottled-ciders', name:'Bottled Ciders', items: mkDrinks('bottled-ciders',["Bottle"],[
+      ['304', 'Crabbies', '4.0%', 6.7],
+      ['305', 'Bulmers', '4.5%', 6.0],
+      ['2033', 'Thistly Cross Elderflower', '3.4%', 7.0],
+      ['2034', 'Thistly Cross Whisky Cask', '6.7%', 8.65],
+      ['2045', 'Old Mout Berries & Cherries', '4.0%', 6.7],
+      ['2046', 'Old Mout Kiwi & Lime', '4.0%', 6.7],
+      ['2047', 'Old Mout Pineapple & Raspberry', '4.0%', 6.7],
+      ['2048', 'Old Mout Strawberry & Apple', '4.0%', 6.7],
+      ['2050', 'Thistly Cross Original', '6.2%', 7.0],
+      ['2051', 'Thistly Cross Strawberry', '3.4%', 7.0],
+      ['2067', 'Bulmers Red', '4.0%', 6.2],
+      ['2141', 'Thistly Cross Traditional', '4.4%', 7.0],
+      ['2142', 'Magners', '4.5%', 6.0],
+      ['2152', 'Old Mout Passionfruit & Mango', '4.0%', 6.7],
+    ])},
+    { id:'alcopops', name:'Alcopops', items: mkDrinks('alcopops',["Bottle"],[
+      ['302', 'VK Blue', '3.4%', 5.0],
+      ['2052', 'VK Apple', '3.4%', 5.0],
+      ['2053', 'VK Ice', '3.4%', 5.0],
+      ['2054', 'VK Orange', '3.4%', 5.0],
+      ['2055', 'VK Strawberry & Lime', '3.4%', 5.0],
+      ['2056', 'VK Tropical', '3.4%', 5.0],
+      ['2057', 'VK Watermelon', '3.4%', 5.0],
+      ['2063', 'VK Cherry', '3.4%', 5.0],
+      ['2206', 'VK Lemon', '3.4%', 5.0],
+      ['2207', 'VK Apple & Blackcurrant', '3.4%', 5.0],
+    ])},
+    { id:'gin-vodka', name:'Gin & Vodka', mixable:true, items: mkDrinks('gin-vodka',["Price"],[
+      ['59', 'Gordon\'s Pink', '', 4.5],
+      ['385', 'Smirnoff', '', 4.5],
+      ['386', 'Gordon\'s Gin', '', 4.5],
+      ['387', 'Bombay Sapphire', '', 4.7],
+      ['388', 'Edinburgh Gin', '', 4.7],
+      ['390', 'Crystal Skull', '', 7.15],
+      ['2027', 'Muff Liquor Gin', '', 6.4],
+      ['2029', 'AU Vodka', '', 4.85],
+      ['2098', 'Stonegaze Rhubarb & Raspberry Gin', '', 6.45],
+      ['2114', 'Smuggler\'s Vodka', '', 4.9],
+      ['2115', 'Smuggler\'s Gin', '', 5.3],
+      ['2126', 'Tanqueray', '', 4.7],
+      ['2127', 'Hendrick\'s', '', 5.2],
+      ['2128', 'Boe Gin', '', 4.7],
+      ['2150', 'Absolut Vodka', '', 4.85],
+      ['2164', 'Edinburgh Gin Bramble & Honey', '', 4.7],
+      ['2165', 'Edinburgh Gin Raspberry', '', 4.7],
+      ['2166', 'Edinburgh Gin Gooseberry', '', 4.7],
+      ['2167', 'Edinburgh Gin Orange & Basil', '', 4.7],
+      ['2168', 'Edinburgh Gin Rhubarb & Ginger', '', 4.7],
+      ['2169', 'Absolut Citron', '', 4.85],
+      ['2170', 'Absolut Mango', '', 4.85],
+      ['2171', 'Absolut Raspberry', '', 4.85],
+      ['2183', 'Tanqueray Sevilla', '', 4.7],
+      ['2188', 'Absolut Vanilla', '', 4.85],
+      ['2196', 'Aber Falls Salted Toffee Gin Liqueur', '', 4.9],
+      ['2199', 'Glen\'s', '', 4.7],
+    ])},
+    { id:'rum', name:'Rum', mixable:true, items: mkDrinks('rum',["Price"],[
+      ['209', 'Morgan\'s Spiced', '', 4.5],
+      ['210', 'Bacardi', '', 4.5],
+      ['211', 'OVD', '', 4.5],
+      ['219', 'Malibu', '', 4.5],
+      ['220', 'Havana 7', '', 5.0],
+      ['221', 'Havana 3', '', 5.0],
+      ['222', 'Havana Especial', '', 5.0],
+      ['225', 'Kraken', '', 4.5],
+      ['228', 'Bacardi Oakheart', '', 4.8],
+      ['229', 'Goslings', '', 4.8],
+      ['233', 'Old J Spiced', '', 4.5],
+      ['238', 'Lamb\'s Navy', '', 4.5],
+      ['247', 'Old J Tiki Fire', '', 7.75],
+      ['447', 'Sailor Jerry', '', 4.5],
+      ['2012', 'Dead Man\'s Fingers Spiced', '', 4.6],
+      ['2071', 'Lamb\'s Spiced', '', 4.5],
+      ['2072', 'Kraken Black Cherry', '', 4.5],
+      ['2073', 'Morgan\'s Dark', '', 4.5],
+      ['2074', 'Black Tears', '', 5.0],
+      ['2163', 'Havana Blanco', '', 5.0],
+      ['2175', 'Dead Man\'s Fingers Cherry', '', 4.6],
+      ['2176', 'Dead Man\'s Fingers Raspberry', '', 4.6],
+      ['2177', 'Dead Man\'s Fingers Pineapple', '', 4.6],
+      ['2178', 'Dead Man\'s Fingers Mango', '', 4.6],
+      ['2179', 'Dead Man\'s Fingers Banana', '', 4.6],
+      ['2180', 'Dead Man\'s Fingers Coconut', '', 4.6],
+      ['2181', 'Dead Man\'s Fingers Passionfruit', '', 4.6],
+      ['2185', 'Dead Man\'s Fingers White', '', 4.6],
+      ['2186', 'Kraken Coffee', '', 4.5],
+      ['2187', 'Kraken Caramel', '', 4.5],
+      ['2189', 'Old J Cherry', '', 4.5],
+      ['2190', 'Old J Pineapple', '', 4.5],
+      ['2191', 'Old J Dark', '', 4.5],
+      ['2192', 'Old J Silver', '', 4.5],
+      ['2217', 'Lang\'s Banana Rum', '', 5.0],
+    ])},
+    { id:'bourbon', name:'Bourbons & Sour Mash', mixable:true, items: mkDrinks('bourbon',["Price"],[
+      ['40', 'Old Virginia', '', 4.9],
+      ['207', 'Jim Beam Double Oak', '', 5.3],
+      ['208', 'Jack Daniel\'s', '', 4.6],
+      ['213', 'Bulleit', '', 4.9],
+      ['215', 'Buffalo Trace', '', 4.4],
+      ['216', 'Makers Mark', '', 4.6],
+      ['217', 'Wild Turkey', '', 4.6],
+      ['218', 'Woodford Reserve', '', 5.4],
+      ['223', 'Gentleman Jack', '', 4.9],
+      ['224', 'Jack Daniel\'s Single Barrel', '', 5.5],
+      ['226', 'Jim Beam Red Stag', '', 4.6],
+      ['227', 'Knob Creek', '', 5.7],
+      ['230', 'Jim Beam Devil\'s Cut', '', 5.6],
+      ['231', 'Jack Daniel\'s Rye', '', 4.6],
+      ['232', 'Jack Honey', '', 4.6],
+      ['236', 'Jim Beam White', '', 4.4],
+      ['244', 'Jim Beam Apple', '', 4.6],
+      ['416', 'Jack Fire', '', 4.6],
+      ['2070', 'Jack Apple', '', 4.6],
+    ])},
+    { id:'whisky', name:'Whisky', mixable:true, items: mkDrinks('whisky',["Price"],[
+      ['71', 'Whyte & Mackay', '', 4.3],
+      ['72', 'Chivas Regal', '', 4.8],
+      ['74', 'The Singleton', '', 5.85],
+      ['75', 'Tobermory', '', 5.8],
+      ['80', 'Glenkinchie', '', 6.8],
+      ['82', 'Glen Moray', '', 4.4],
+      ['83', 'Aberlour 12', '', 7.1],
+      ['85', 'Highland Park', '', 5.4],
+      ['86', 'Oban', '', 11.35],
+      ['87', 'Glenfiddich', '', 5.1],
+      ['88', 'Jameson', '', 4.6],
+      ['89', 'Laphroaig', '', 5.8],
+      ['90', 'Glenmorangie', '', 5.4],
+      ['91', 'Bushmills Black', '', 4.6],
+      ['92', 'Johnnie Walker Black', '', 4.8],
+      ['93', 'Famous Grouse', '', 5.25],
+      ['95', 'Bells', '', 4.2],
+      ['96', 'Bunnahabhain', '', 6.5],
+      ['97', 'Lagavulin 16', '', 12.1],
+      ['102', 'Bruichladdich', '', 7.1],
+      ['104', 'Old Pultney', '', 5.6],
+      ['107', 'Balvenie', '', 7.2],
+      ['109', 'Dalwhinnie', '', 7.5],
+      ['111', 'Talisker', '', 7.6],
+      ['112', 'Bowmore', '', 6.15],
+      ['114', 'Glenfiddich 15', '', 8.0],
+      ['115', 'Glenfiddich 18', '', 11.2],
+      ['116', 'Glengoyne', '', 5.1],
+      ['127', 'Bushmills 10', '', 4.6],
+      ['142', 'Tamnavulin', '', 5.1],
+      ['196', 'Glenfarclas', '', 6.6],
+      ['237', 'Johnnie Walker Red', '', 4.5],
+      ['394', 'Monkey Shoulder', '', 5.5],
+      ['2084', 'Slane\'s', '', 5.1],
+      ['2145', 'Glenlivet', '', 5.9],
+      ['2148', 'Aberlour 10', '', 6.55],
+      ['2158', 'Jura', '', 4.8],
+      ['2215', 'Dalmore', '', 6.0],
+    ])},
+    { id:'liqueurs', name:'Liqueurs', mixable:true, items: mkDrinks('liqueurs',["Price"],[
+      ['38', 'Southern Comfort', '', 4.4],
+      ['39', 'Baileys', '', 4.9],
+      ['41', 'Passoã', '', 4.4],
+      ['42', 'Archers', '', 4.3],
+      ['43', 'Midori', '', 4.4],
+      ['44', 'Amaretto', '', 4.3],
+      ['45', 'Tia Maria', '', 4.4],
+      ['46', 'Martell Brandy', '', 4.7],
+      ['47', 'Pernod', '', 4.7],
+      ['48', 'Glayva', '', 4.7],
+      ['49', 'Kahlua', '', 4.4],
+      ['50', 'Pimms', '', 4.4],
+      ['51', 'Cointreau', '', 4.5],
+      ['52', 'Martini Extra Dry', '', 4.7],
+      ['53', 'Cockburn\'s Port', '', 4.9],
+      ['54', 'Drambuie', '', 4.9],
+      ['55', 'Chambord', '', 5.3],
+      ['56', 'Grand Marnier', '', 4.9],
+      ['57', 'Disaronno', '', 4.5],
+      ['58', 'Courvoisier Brandy', '', 5.2],
+      ['2193', 'Cherry Brandy', '', 4.4],
+      ['2194', 'Mead', '', 4.6],
+      ['2195', 'Ginger Wine', '', 4.6],
+      ['2218', 'Sherry', '', 4.7],
+    ])},
+    { id:'shots', name:'Shots', items: mkDrinks('shots',["Price"],[
+      ['411', 'Jäger', '', 4.0],
+      ['413', 'Jose Cuervo Tequila Gold', '', 4.0],
+      ['414', 'NV Absinthe', '', 4.65],
+      ['415', 'Bucky Bomb', '', 4.0],
+      ['419', 'Fireball', '', 4.0],
+      ['420', 'Aftershock Red', '', 4.55],
+      ['423', 'Jäger Bomb', '', 5.0],
+      ['425', 'Patrón Silver Tequila', '', 7.35],
+      ['426', 'Sourz Apple', '', 2.5],
+      ['427', 'Sambuca White', '', 4.0],
+      ['429', 'Tequila Rose', '', 4.65],
+      ['2077', 'Sambuca Black', '', 4.0],
+      ['2078', 'Sourz Cherry', '', 2.5],
+      ['2079', 'Sourz Passionfruit', '', 2.5],
+      ['2080', 'Sourz Watermelon', '', 2.5],
+      ['2082', 'Aftershock Black', '', 4.55],
+      ['2092', 'Jose Cuervo Tequila Silver', '', 4.0],
+      ['2095', 'Sambuca Raspberry', '', 4.0],
+      ['2096', 'Sourz Rainbow', '', 2.5],
+      ['2097', 'Sourz Raspberry', '', 2.5],
+      ['2125', 'Sheepdog', '', 4.0],
+      ['2149', '1800 Tequila', '', 5.45],
+      ['2151', 'Cazcabel Honey', '', 4.65],
+      ['2172', 'Pumpkin Potion', '', 3.95],
+      ['2173', 'DMF Coffee Tequila Liqueur', '', 5.05],
+      ['2174', 'DMF Mango Tequila Cream Liqueur', '', 5.05],
+      ['2182', 'DMF Tequila Reposado', '', 5.05],
+      ['2184', 'Buckfast', '', 3.95],
+      ['2212', 'Patrón XO Cafe', '', 7.35],
+      ['2213', 'Cazcabel Coffee', '', 4.65],
+      ['2214', 'Bumbu Cream', '', 4.65],
+    ])},
+    { id:'non-alcoholic', name:'Non-Alcoholic', items: mkDrinks('non-alcoholic',["Price"],[
+      ['12', 'Heineken 0%', '', 5.5],
+      ['140', 'Erdinger Alkohol Frei', '', 6.2],
+      ['306', 'Old Mout 0%', '', 5.5],
+      ['2156', 'Guinness 0%', '', 5.7],
+      ['2157', 'Peroni 0%', '', 5.5],
+      ['2159', '0% Spirit + Mixer', '', 4.5],
+      ['2160', 'Non-Alcoholic Cocktail', '', 5.5],
+      ['2161', '0% Wine', '', 12.0],
+      ['2205', 'Budvar 0%', '', 5.1],
+      ['2208', '0% Spirit', '', 3.0],
+    ])},
+    { id:'soft-drinks', name:'Soft Drinks', items: [
+      ...mkDrinks('soft-drinks',["Price"],[
+      ['157', 'Bottled Water', '', 3.2],
+      ['448', 'Cordial Dash', '', 1.55],
+      ]),
+      ...mkDrinks('soft-drinks',["Price"],[
+      ['154', 'Red Bull', '', 3.9],
+      ['155', 'Irn Bru', '', 3.0],
+      ['2085', 'Coca-Cola', '', 3.0],
+      ['2086', 'Diet Coke', '', 3.0],
+      ['2088', 'Slimline Tonic', '', 2.0],
+      ['2089', 'Tonic', '', 2.0],
+      ['2090', 'Old Jamaica Ginger Beer', '', 3.0],
+      ['2091', 'Pepsi Max', '', 3.0],
+      ['2093', 'Fanta', '', 3.0],
+      ['2094', 'Diet Irn Bru', '', 3.0],
+      ['2121', 'San Pellegrino Orange', '', 3.35],
+      ['2122', 'San Pellegrino Limonata', '', 3.35],
+      ['2147', 'Ginger Ale', '', 2.25],
+      ['2154', 'Kick Energy', '', 3.05],
+      ['2155', 'San Pellegrino Blood Orange', '', 3.35],
+      ['2204', '7Up', '', 3.0],
+      ['2216', 'Ginger Beer', '', 2.95],
+      ]).map(it=>({...it, iceOptional:true})),
+      ...mkDrinks('soft-drinks',["Pint","Half"],[
+      ['gun-pepsi', 'Pepsi (Gun)', '', 3.5, 2.5],
+      ['gun-pepsi-max', 'Pepsi Max (Gun)', '', 3.5, 2.5],
+      ['gun-lemonade', 'Lemonade (Gun)', '', 3.5, 2.5],
+      ['gun-energy', 'Energy (Gun)', '', 3.5, 2.5],
+      ['gun-cranberry', 'Cranberry (Gun)', '', 3.5, 2.5],
+      ['gun-orange', 'Orange (Gun)', '', 3.5, 2.5],
+      ['gun-irn-bru', 'Irn Bru (Gun)', '', 3.5, 2.5],
+      ['gun-soda', 'Soda (Gun)', '', 3.5, 2.5],
+      ]).map(it=>({...it, iceOptional:true})),
+    ]},
+    { id:'snacks', name:'Snacks', items: mkDrinks('snacks',["Price"],[
+      ['161', 'Bar Snacks', '', 2.0],
+      ['61', 'Popcorn', '', 2.45],
+      ['63', 'Babybel', '', 1.35],
+      ['64', 'Pepperami', '', 1.75],
+    ])},
+    { id:'cocktails', name:'Cocktails', wheel:true, items: mkPours('cocktails',[
+      ['260', 'Devil\'s Candy', 'Jack Daniel\'s, amaretto, coke', 9.5, 26.0],
+      ['261', 'Tsu-Nami', 'Cherry sourz, blue curacao, lemonade, cranberry juice', 9.5, 26.0],
+      ['262', 'Dracula\'s Bite', 'Malibu, Glen\'s Vodka, cranberry juice, wedge of lime', 9.5, 26.0],
+      ['263', 'Zombie', 'Archer\'s, Glen\'s Vodka, orange juice, cranberry juice', 9.5, 26.0],
+      ['264', 'Ghostbuster', 'Bailey\'s, amaretto, Glen\'s Vodka, Kahlúa, chocolate sauce, milk', 9.5, 26.0],
+      ['265', 'Hulk', 'Apple sourz, Midori, absinthe (half amount), orange juice, cranberry juice', 9.5, 26.0],
+      ['266', 'Banshee', 'Tequila, absinthe, black sambuca, red aftershock, Irn Bru', 9.5, 26.0],
+      ['267', 'Yeti', 'Tia Maria, crème de menthe, milk', 9.5, 26.0],
+      ['287', 'Count Buckula', 'Buckfast, Gordon\'s gin, grenadine, soda water', 9.5, 26.0],
+      ['288', 'Molly\'s Ashes', 'Cherry sourz, Bacardi, lemonade', 9.5, 26.0],
+    ])},
+    { id:'shooters', name:'Shooters', wheel:true, items: mkPours('shooters',[
+      ['268', 'After Eight', 'Cacao white, crème de menthe, Bailey\'s', 4.25],
+      ['269', 'Flatliner', 'White sambuca, tequila, tabasco', 4.25],
+      ['270', 'Bloody Roots', 'Archer\'s, Passoã, grenadine', 4.25],
+      ['271', 'Devil\'s Kiss', 'Tequila Rose, crème de menthe', 4.25],
+      ['272', 'Voodoo Doll', 'Kahlúa, Bailey\'s', 4.25],
+      ['273', 'Brain Haemorrhage', 'Archer\'s, grenadine, Bailey\'s', 4.25],
+      ['274', 'Black Death', 'Tequila, absinthe, black sambuca, black aftershock', 4.25],
+      ['275', 'Clockwork Orange', 'Buckfast, Cointreau', 4.25],
+      ['276', 'Slippery Nipple', 'White sambuca, Bailey\'s, grenadine', 4.25],
+      ['277', 'Tequila Midnight', 'Tequila, blue curacao, grenadine', 4.25],
+      ['2209', 'Peanut Butter Jelly Time', 'Sheepdog, Chambord, grenadine', 4.25],
+    ])},
+    { id:'wine', name:'Wine & Prosecco', items: mkWine([
+      ['2133', 'Sauvignon Blanc', ["Large", "Small", "Bottle"], [8.0, 5.8, 24.0]],
+      ['2134', 'Merlot', ["Large", "Small", "Bottle"], [8.0, 5.8, 24.0]],
+      ['2135', 'Rosé', ["Large", "Small", "Bottle"], [8.0, 5.8, 24.0]],
+      ['2138', 'Pinot Grigio', ["Large", "Small", "Bottle"], [8.0, 5.8, 24.0]],
+      ['2139', 'Chardonnay', ["Large", "Small", "Bottle"], [8.0, 5.8, 24.0]],
+      ['2143', 'Shiraz', ["Large", "Small", "Bottle"], [8.0, 5.8, 24.0]],
+      ['2144', 'Cabernet Sauvignon', ["Large", "Small", "Bottle"], [8.0, 5.8, 24.0]],
+      ['2024', 'Prosecco (750ml Bottle)', ["Bottle"], [24.0]],
+      ['2025', 'Prosecco (Glass)', ["Glass"], [8.0]],
+      ['186', 'Moët & Chandon', ["Bottle"], [80.0]],
+    ])},
+  ]};
+}
+
+/* ================= STATE ================= */
+let menu = { categories: [] };
+let loaded = false;
+let mode = 'browse';       // 'browse' | 'edit'
+let editAuthed = false;
+let pinEntry = '';
+const MASTER_PIN = '8350';
+
+let activeCat = '';
+let query = '';
+let toastMsg = '';
+let toastTimer = null;
+
+let newCatName = '';
+let newCatWheel = false;
+
+let itemSheetOpen=false, itemSheetMode='add', itemSheetCatId='', itemSheetDraft=null;
+
+let wheelOpen=false, wheelSpinning=false, wheelCategory='cocktails', wheelResultIndex=null, wheelCycleIndex=0;
+
+/* ---- table order builder ---- */
+let tableLabel = '';        // raw display label this device has joined, '' = not joined
+let tableSlug = '';         // normalised key shared by everyone at that table
+let tableOrder = null;      // {displayLabel, items:[{lineKey,itemId,name,variant,price,qty}], notes, updatedAt}
+let orderSheetOpen = false;
+let joinSheetOpen = false;
+let joinInput = '';
+let pendingAddItem = null;  // item tapped before a table was joined
+let pendingAddName = '';    // optional "whose is this" name carried through the join flow
+let quickAddItem = null;    // item awaiting a price-variant choice
+let quickAddName = '';      // optional "whose is this" name carried through the variant-picker flow
+let tablePollId = null;
+let wheelNameInput = '';    // optional "whose is this" name entered on a wheel result
+
+/* mixers are rung up separately from the spirit itself (a Dash charge) */
+const DASH_PRICE = 1.60;
+const DASH_OPTIONS = [
+  { plu:'dash-pepsi', name:'Pepsi' }, { plu:'dash-pepsi-max', name:'Pepsi Max' },
+  { plu:'dash-lemonade', name:'Lemonade' }, { plu:'dash-energy', name:'Energy' },
+  { plu:'dash-cranberry', name:'Cranberry' }, { plu:'dash-orange', name:'Orange' },
+  { plu:'dash-irn-bru', name:'Irn Bru' }, { plu:'dash-soda', name:'Soda' },
+];
+let dashPromptItem = null;
+let dashPromptOpen = false;
+let icePromptItem = null;
+let icePromptPrice = null;
+let icePromptName = '';
+let icePromptOpen = false;
+
+/* ---- bar kiosk screen ---- */
+let barActive = false;
+let barOrders = [];         // [{slug, displayLabel, items, notes, updatedAt}]
+let barPollId = null;
+
+/* ================= FIREBASE CONFIG =================
+   Fill these in from Firebase Console → Project settings → Your apps → SDK config.
+   Reusing the same project as Rockboard is fine — this just adds a couple more
+   Firestore collections ("banshee" for the menu, "banshee-orders" for table orders). */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCBV3mususv2A_ss0vEiUDxA6PBGCOLCgc",
+  authDomain: "rockboard-2b240.firebaseapp.com",
+  projectId: "rockboard-2b240",
+  storageBucket: "rockboard-2b240.firebasestorage.app",
+  messagingSenderId: "875047215481",
+  appId: "1:875047215481:web:89616e2e219aa6396d0fa8"
+};
+// Suggested rules (Console → Firestore → Rules):
+//   match /banshee/drinks-menu { allow read: if true; allow write: if false; }
+//   match /banshee-orders/{tableId} { allow read: if true; allow write: if true; }
+// Table orders need public write — that's how anyone at a table adds to the
+// shared list without logging in. The menu stays read-only from the live site
+// with write:false, so Edit mode changes won't persist once deployed unless
+// you loosen that rule (see the README).
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.firestore();
+const menuDocRef = db.collection('banshee').doc('drinks-menu');
+const ordersCollectionRef = db.collection('banshee-orders');
+
+/* ================= STORAGE (Firestore) — menu ================= */
+async function loadAll(){
+  try{
+    const snap = await menuDocRef.get();
+    if(snap.exists){ menu = JSON.parse(snap.data().json); }
+    else { menu = defaultMenu(); await menuDocRef.set({ json: JSON.stringify(menu), updatedAt: Date.now() }); }
+  }catch(e){ console.error(e); menu = defaultMenu(); }
+  if(!activeCat && menu.categories.length){ activeCat = menu.categories[0].id; }
+  loaded = true;
+  if(typeof location!=='undefined' && location.hash==='#bar'){ barActive=true; startBarPolling(); }
+  render();
+  loadAvailability();
+  setInterval(loadAvailability, 60000);
+  menuDocRef.onSnapshot(snap=>{
+    if(!snap.exists) return;
+    const incoming = snap.data().json;
+    if(incoming !== JSON.stringify(menu)){ menu = JSON.parse(incoming); render(); }
+  });
+}
+async function saveMenu(msg){
+  try{ await menuDocRef.set({ json: JSON.stringify(menu), updatedAt: Date.now() }); showToast(msg||'Saved'); }
+  catch(e){ console.error(e); showToast('Could not save — check connection'); }
+}
+
+/* ---- table order storage (Firestore, live) ---- */
+async function fetchTableOrder(slug){
+  try{ const snap = await ordersCollectionRef.doc(slug).get(); return snap.exists ? snap.data() : null; }
+  catch(e){ return null; }
+}
+async function persistTableOrder(){
+  if(!tableSlug || !tableOrder) return;
+  try{ await ordersCollectionRef.doc(tableSlug).set(tableOrder); }
+  catch(e){ showToast('Could not sync order — check connection'); }
+}
+async function deleteTableOrderRemote(slug){
+  try{ await ordersCollectionRef.doc(slug).delete(); }catch(e){}
+}
+function startTablePolling(){
+  stopTablePolling();
+  tablePollId = ordersCollectionRef.doc(tableSlug).onSnapshot(snap=>{
+    if(!snap.exists) return;
+    const fresh = snap.data();
+    if(JSON.stringify(fresh)!==JSON.stringify(tableOrder)){ tableOrder = fresh; render(); }
+  });
+}
+function stopTablePolling(){ if(tablePollId){ tablePollId(); tablePollId=null; } } // unsubscribe fn
+
+/* ---- bar screen storage (Firestore, live across the whole collection) ---- */
+function startBarPolling(){
+  stopBarPolling();
+  barPollId = ordersCollectionRef.onSnapshot(snap=>{
+    const out = [];
+    snap.forEach(doc=> out.push(doc.data()));
+    out.sort((a,b)=> (a.updatedAt||0)-(b.updatedAt||0));
+    barOrders = out;
+    render();
+  });
+}
+function stopBarPolling(){ if(barPollId){ barPollId(); barPollId=null; } } // unsubscribe fn
+async function refreshBarOrders(){} // no-op: the Firestore listener above keeps barOrders live
+
+/* ================= UTIL ================= */
+function money(v){ return '£'+Number(v).toFixed(2); }
+function escapeHtml(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function showToast(msg){
+  toastMsg = msg; render();
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ toastMsg=''; render(); }, 2200);
+}
+
+/* ================= PIN / EDIT MODE ================= */
+function tryPinDigit(d){
+  if(pinEntry.length>=4) return;
+  pinEntry += String(d);
+  if(pinEntry.length===4){
+    if(pinEntry===MASTER_PIN){ editAuthed=true; pinEntry=''; showToast('Edit mode on'); render(); }
+    else { showToast('Wrong PIN'); pinEntry=''; render(); }
+  } else render();
+}
+function pinClear(){ pinEntry=''; render(); }
+function setMode(m){ mode=m; if(m==='browse'){ editAuthed=false; pinEntry=''; } render(); }
+function lockEdit(){ editAuthed=false; mode='browse'; render(); }
+
+/* ================= ITEM / CATEGORY CRUD ================= */
+function removeItem(catId, itemId){
+  const cat = menu.categories.find(c=>c.id===catId);
+  cat.items = cat.items.filter(i=>i.id!==itemId);
+  saveMenu('Item removed');
+}
+function openEditItem(catId, itemId){
+  const cat = menu.categories.find(c=>c.id===catId);
+  const item = cat.items.find(i=>i.id===itemId);
+  if(!item) return;
+  itemSheetMode='edit'; itemSheetCatId=catId;
+  itemSheetDraft = JSON.parse(JSON.stringify(item));
+  itemSheetOpen=true; render();
+}
+function openAddItem(catId){
+  const cat = menu.categories.find(c=>c.id===catId);
+  const labels = cat.items.length ? cat.items[0].prices.map(p=>p.label) : (cat.wheel?['Glass','Pitcher']:['Price']);
+  itemSheetMode='add'; itemSheetCatId=catId;
+  itemSheetDraft = { name:'', abv:'', desc:'', prices: labels.map(l=>({label:l, value:''})) };
+  itemSheetOpen=true; render();
+}
+function closeItemSheet(){ itemSheetOpen=false; itemSheetDraft=null; render(); }
+function draftSetField(field, val){ itemSheetDraft[field]=val; }
+function draftSetPrice(i, val){ itemSheetDraft.prices[i].value = val; }
+function saveItemDraft(){
+  if(!itemSheetDraft.name.trim()){ showToast('Name required'); return; }
+  const cat = menu.categories.find(c=>c.id===itemSheetCatId);
+  const cleaned = { ...itemSheetDraft, name: itemSheetDraft.name.trim(),
+    prices: itemSheetDraft.prices.map(p=>({label:p.label, value: p.value===''||p.value==null?'':Number(p.value)})).filter(p=>p.value!=='') };
+  if(itemSheetMode==='add'){ cleaned.id = itemSheetCatId+'-'+uid(); cat.items.push(cleaned); }
+  else { const idx = cat.items.findIndex(i=>i.id===itemSheetDraft.id); if(idx>-1) cat.items[idx]=cleaned; }
+  closeItemSheet(); saveMenu(itemSheetMode==='add' ? 'Item added' : 'Item updated');
+}
+
+function addCategory(){
+  const name = newCatName.trim();
+  if(!name) return;
+  const id = 'cat-'+uid();
+  menu.categories.push({ id, name, wheel: !!newCatWheel, items: [] });
+  newCatName=''; newCatWheel=false;
+  activeCat = id;
+  saveMenu('Category added');
+}
+function removeCategory(catId){
+  menu.categories = menu.categories.filter(c=>c.id!==catId);
+  if(activeCat===catId) activeCat = menu.categories.length ? menu.categories[0].id : '';
+  saveMenu('Category removed');
+}
+
+/* ================= TABLE ORDER BUILDER ================= */
+function slugify(s){ return s.trim().toLowerCase().replace(/\s+/g,' '); }
+
+let onboardingSeen = false;
+let onboardingOpen = false;
+let onboardingPendingItem = null;
+
+function openJoin(pendingItem){
+  if(!onboardingSeen){
+    onboardingPendingItem = pendingItem || null;
+    onboardingOpen = true; render();
+    return;
+  }
+  pendingAddItem = pendingItem || null;
+  joinInput = tableLabel;
+  joinSheetOpen = true; render();
+}
+function dismissOnboarding(){
+  onboardingSeen = true;
+  onboardingOpen = false;
+  const item = onboardingPendingItem; onboardingPendingItem = null;
+  openJoin(item);
+}
+function closeJoin(){ joinSheetOpen=false; pendingAddItem=null; render(); }
+async function confirmJoin(){
+  const label = joinInput.trim();
+  if(!label){ showToast('Enter a group name'); return; }
+  tableLabel = label; tableSlug = slugify(label);
+  joinSheetOpen = false;
+  const existing = await fetchTableOrder(tableSlug);
+  tableOrder = existing || { slug: tableSlug, displayLabel: tableLabel, items: [], notes: '', updatedAt: Date.now() };
+  tableOrder.slug = tableSlug;
+  startTablePolling();
+  render();
+  if(pendingAddItem){ const it=pendingAddItem; const nm=pendingAddName; pendingAddItem=null; pendingAddName=''; requestAdd(it, nm); }
+}
+let generatingCode = false;
+async function generateQuickCode(){
+  if(generatingCode) return;
+  generatingCode = true; render();
+  let code, existing, attempts = 0;
+  do{
+    code = String(Math.floor(1000 + Math.random()*9000)); // 1000–9999, no leading zero to read clearly aloud
+    try{ existing = await fetchTableOrder(code); }catch(e){ existing = null; }
+    attempts++;
+  } while(existing && attempts < 10);
+  generatingCode = false;
+  joinInput = code;
+  await confirmJoin();
+  showToast('Your code is '+code+' — share it with your group');
+}
+function leaveTable(){
+  stopTablePolling();
+  tableLabel=''; tableSlug=''; tableOrder=null; orderSheetOpen=false;
+  render();
+}
+
+function requestAdd(item, forName){
+  if(is86(item)){ showToast(item.name+' is currently unavailable'); return; }
+  if(!tableSlug){ pendingAddName = forName||''; openJoin(item); return; }
+  if(item.prices.length<=1){
+    if(item.iceOptional){ icePromptItem=item; icePromptPrice=item.prices[0]; icePromptName=forName||''; icePromptOpen=true; render(); return; }
+    addToOrder(item, item.prices[0], forName); return;
+  }
+  quickAddItem = item; quickAddName = forName||''; render();
+}
+function cancelQuickAdd(){ quickAddItem=null; quickAddName=''; render(); }
+function chooseVariant(priceIndex){
+  const item = quickAddItem; const nm = quickAddName; const priceObj = item.prices[priceIndex];
+  quickAddItem=null; quickAddName='';
+  if(item.iceOptional){ icePromptItem=item; icePromptPrice=priceObj; icePromptName=nm; icePromptOpen=true; render(); return; }
+  addToOrder(item, priceObj, nm);
+}
+function skipIce(){
+  const item = icePromptItem, priceObj = icePromptPrice, nm = icePromptName;
+  icePromptItem=null; icePromptPrice=null; icePromptName=''; icePromptOpen=false;
+  addToOrder(item, priceObj, nm, '');
+}
+function chooseIce(ice){
+  const item = icePromptItem, priceObj = icePromptPrice, nm = icePromptName;
+  icePromptItem=null; icePromptPrice=null; icePromptName=''; icePromptOpen=false;
+  addToOrder(item, priceObj, nm, ice);
+}
+function addToOrder(item, priceObj, forName, ice){
+  forName = (forName||'').trim();
+  if(!tableOrder){ tableOrder = { slug: tableSlug, displayLabel: tableLabel, items: [], notes: '', updatedAt: Date.now() }; }
+  const lineKey = item.id+'::'+priceObj.label+(forName?'::'+forName.toLowerCase():'')+(ice?'::'+ice:'');
+  const existing = tableOrder.items.find(l=>l.lineKey===lineKey);
+  if(existing){ existing.qty += 1; }
+  else{
+    tableOrder.items.push({ lineKey, itemId:item.id, name:item.name,
+      variant: priceObj.label!=='Price' ? priceObj.label : '', price:priceObj.value, qty:1, forName, ice: ice||'' });
+  }
+  tableOrder.updatedAt = Date.now();
+  persistTableOrder();
+  const cat = menu.categories.find(c=>c.items.includes(item));
+  if(cat && cat.mixable){
+    dashPromptItem = item; dashPromptOpen = true; render();
+  } else {
+    render();
+    showToast('Added to '+tableLabel);
+  }
+}
+function skipDash(){ dashPromptOpen=false; dashPromptItem=null; showToast('Added to '+tableLabel); render(); }
+function addDash(plu, name){
+  if(availability[plu]) { showToast(name+' is currently unavailable'); return; }
+  const lineKey = 'dash::'+plu;
+  const existing = tableOrder.items.find(l=>l.lineKey===lineKey);
+  if(existing){ existing.qty += 1; }
+  else{
+    tableOrder.items.push({ lineKey, itemId:plu, name:'Dash \u2013 '+name, variant:'', price:DASH_PRICE, qty:1 });
+  }
+  tableOrder.updatedAt = Date.now();
+  persistTableOrder();
+  dashPromptOpen=false; dashPromptItem=null;
+  showToast('Added to '+tableLabel);
+  render();
+}
+function changeOrderQty(lineKey, delta){
+  if(!tableOrder) return;
+  const line = tableOrder.items.find(l=>l.lineKey===lineKey);
+  if(!line) return;
+  line.qty += delta;
+  if(line.qty<=0){ tableOrder.items = tableOrder.items.filter(l=>l.lineKey!==lineKey); }
+  tableOrder.updatedAt = Date.now();
+  persistTableOrder(); render();
+}
+function setOrderNotes(v){ if(tableOrder){ tableOrder.notes=v; } }
+function saveOrderNotesNow(){ if(tableOrder){ tableOrder.updatedAt=Date.now(); persistTableOrder(); } }
+function orderTotal(){ return tableOrder ? tableOrder.items.reduce((s,l)=>s+l.price*l.qty,0) : 0; }
+function orderCount(){ return tableOrder ? tableOrder.items.reduce((s,l)=>s+l.qty,0) : 0; }
+function openOrderSheet(){ orderSheetOpen=true; render(); }
+function closeOrderSheet(){ orderSheetOpen=false; render(); }
+function clearOrder(){
+  if(!tableOrder || !tableOrder.items.length) return;
+  if(!confirm('Clear the whole order for '+tableLabel+'? This removes everything on the list.')) return;
+  tableOrder.items = [];
+  tableOrder.updatedAt = Date.now();
+  persistTableOrder();
+  showToast('Order cleared');
+  render();
+}
+
+/* ================= BAR KIOSK SCREEN ================= */
+function enterBarMode(){
+  location.hash = 'bar';
+  barActive = true;
+  startBarPolling();
+  render();
+}
+function exitBarMode(){
+  location.hash = '';
+  barActive = false;
+  stopBarPolling();
+  render();
+}
+async function markServed(slug){
+  await deleteTableOrderRemote(slug);
+  refreshBarOrders();
+}
+function fmtElapsed(ts){
+  const mins = Math.max(0, Math.round((Date.now()-ts)/60000));
+  if(mins<1) return 'just now';
+  if(mins===1) return '1 min ago';
+  if(mins<60) return mins+' min ago';
+  const hrs = Math.round(mins/60);
+  return hrs+'h ago';
+}
+
+/* ================= 86 AVAILABILITY SYNC ================= */
+// Reads live availability from a small Google Apps Script endpoint (deployed
+// against the master Sheet) and greys out matching items by PLU. Not the raw
+// Sheet export URL — that endpoint doesn't send the CORS header browsers
+// require for JS to read it cross-origin, so it silently failed every time
+// regardless of sharing settings. Apps Script Web Apps don't have that problem.
+// Fails silently if the endpoint is unreachable — the page still works
+// normally either way, just without the 86 overlay.
+const AVAILABILITY_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyQ3AbLUENs2cNLMFEKfp2YNkm2f5a1xl7jL2B3GoBLJFrTAPfSUI30aT-WPScYA0WswQ/exec';
+let availability = {}; // plu -> true means 86'd (unavailable)
+
+async function loadAvailability(){
+  try{
+    const res = await fetch(AVAILABILITY_SHEET_URL);
+    if(!res.ok) return;
+    availability = await res.json();
+    render();
+  }catch(e){ /* sheet not shared yet, or offline — page still works without it */ }
+}
+function is86(item){ return !!(item.plu && availability[item.plu]); }
+
+/* ================= WHEEL ================= */
+function wheelCategories(){ return menu.categories.filter(c=>c.wheel && c.items.some(i=>!is86(i))); }
+function openWheel(){
+  const cats = wheelCategories();
+  if(!cats.length){ showToast('Add some cocktails or shooters first'); return; }
+  if(!cats.find(c=>c.id===wheelCategory)) wheelCategory = cats[0].id;
+  wheelOpen=true; wheelSpinning=false; wheelResultIndex=null; wheelCycleIndex=0; wheelNameInput=''; render();
+}
+function closeWheel(){ if(wheelSpinning) return; wheelOpen=false; render(); }
+function selectWheelCategory(id){ if(wheelSpinning) return; wheelCategory=id; wheelResultIndex=null; render(); }
+function spinAgain(){ wheelResultIndex=null; wheelNameInput=''; render(); }
+function addFromWheel(){
+  const wCat = menu.categories.find(c=>c.id===wheelCategory);
+  const items = wCat ? wCat.items.filter(i=>!is86(i)) : [];
+  const item = items[wheelResultIndex];
+  if(!item) return;
+  const nm = wheelNameInput;
+  wheelOpen = false;
+  wheelNameInput = '';
+  requestAdd(item, nm);
+}
+function spinWheel(){
+  if(wheelSpinning) return;
+  const cat = menu.categories.find(c=>c.id===wheelCategory);
+  const items = cat ? cat.items.filter(i=>!is86(i)) : [];
+  if(!items.length) return;
+  wheelSpinning=true; wheelResultIndex=null;
+  const finalIndex = Math.floor(Math.random()*items.length);
+  const totalTicks = 18; let tick=0;
+  function step(){
+    wheelCycleIndex = Math.floor(Math.random()*items.length);
+    render(); tick++;
+    if(tick<totalTicks){ const progress=tick/totalTicks; setTimeout(step, 55+Math.pow(progress,2)*260); }
+    else { wheelCycleIndex=finalIndex; wheelResultIndex=finalIndex; wheelSpinning=false; render(); }
+  }
+  step();
+}
+
+/* ================= RENDER ================= */
+function selectCat(id){ activeCat=id; query=''; render(); }
+function findItemById(id){
+  for(const cat of menu.categories){
+    const item = cat.items.find(i=>i.id===id);
+    if(item) return item;
+  }
+  return null;
+}
+
+function searchAllItems(q){
+  q = q.trim().toLowerCase();
+  const results = [];
+  menu.categories.forEach(cat=>{
+    cat.items.forEach(item=>{
+      if(item.name.toLowerCase().includes(q) || (item.desc||'').toLowerCase().includes(q)){
+        results.push({ item, catName: cat.name });
+      }
+    });
+  });
+  return results;
+}
+
+function priceLineHtml(item){
+  return item.prices.map(p=>`<span class="price">${p.label!=='Price'?`<span class="lbl">${escapeHtml(p.label)}</span>`:''}${money(p.value)}</span>`).join('');
+}
+
+function itemCardHtml(it, catName){
+  const unavailable = is86(it);
+  return `<div class="item-card ${unavailable?'unavailable':''}">
+    <div class="info">
+      <p class="name">${escapeHtml(it.name)}${it.abv?`<span class="abv">${escapeHtml(it.abv)}</span>`:''}${catName?`<span class="cat-tag">${escapeHtml(catName)}</span>`:''}${unavailable?'<span class="unavailable-tag">86\'d</span>':''}</p>
+      ${it.desc ? `<p class="desc">${escapeHtml(it.desc)}</p>` : ''}
+      <div class="prices">${priceLineHtml(it)}</div>
+    </div>
+    <button class="add-btn" ${unavailable?'disabled':''} onclick="requestAdd(findItemById('${it.id}'))">+</button>
+  </div>`;
+}
+
+function render(){
+  const app = document.getElementById('app');
+  if(!loaded){ app.innerHTML = '<div style="padding:60px 20px; text-align:center; color:#A79AA6;">Loading menu…</div>'; return; }
+
+  if(barActive){
+    app.innerHTML = renderBarScreen();
+    return;
+  }
+
+  const prevCatScroll = document.querySelector('.cat-scroll');
+  const catScrollX = prevCatScroll ? prevCatScroll.scrollLeft : 0;
+
+  const prevSearchInput = document.getElementById('search-input');
+  const searchFocused = !!(prevSearchInput && document.activeElement === prevSearchInput);
+  const searchSelStart = searchFocused ? prevSearchInput.selectionStart : null;
+  const searchSelEnd = searchFocused ? prevSearchInput.selectionEnd : null;
+
+  let html = '';
+  html += toastMsg ? `<div class="toast">${escapeHtml(toastMsg)}</div>` : '';
+
+  html += `<header class="topbar">
+    <div class="brand">
+      <div>
+        <h1>The Banshee Labyrinth</h1>
+        <div class="sub">Drinks Menu</div>
+      </div>
+      <button class="lock-btn" onclick="${mode==='edit'?'lockEdit()':"setMode('edit')"}">${mode==='edit'?'Done editing':'Edit menu'}</button>
+    </div>
+  </header>`;
+
+  html += '<main>';
+  html += mode==='browse' ? renderBrowseView() : renderEditView();
+  html += '</main>';
+
+  if(mode==='browse' && tableOrder && tableOrder.items.length && !orderSheetOpen){
+    html += `<div class="order-bar"><div class="order-bar-inner" onclick="openOrderSheet()">
+      <span>${escapeHtml(tableLabel)} · ${orderCount()} item${orderCount()!==1?'s':''} · ${money(orderTotal())}</span>
+      <button class="cta" onclick="event.stopPropagation(); openOrderSheet()">View order</button>
+    </div></div>`;
+  }
+
+  html += `<footer>Menu synced across devices · staff edits require the master PIN · <a href="#bar" onclick="enterBarMode(); return false;" style="color:var(--text-dim);">Bar orders screen</a></footer>`;
+
+  if(wheelOpen){ html += renderWheelSheet(); }
+  if(itemSheetOpen){ html += renderItemSheet(); }
+  if(onboardingOpen){ html += renderOnboardingSheet(); }
+  if(joinSheetOpen){ html += renderJoinSheet(); }
+  if(quickAddItem){ html += renderQuickAddSheet(); }
+  if(orderSheetOpen){ html += renderOrderSheet(); }
+  if(dashPromptOpen && dashPromptItem){ html += renderDashSheet(); }
+  if(icePromptOpen && icePromptItem){ html += renderIcePromptSheet(); }
+
+  app.innerHTML = html;
+
+  const newCatScroll = document.querySelector('.cat-scroll');
+  if(newCatScroll && catScrollX){ newCatScroll.scrollLeft = catScrollX; }
+
+  if(searchFocused){
+    const newSearchInput = document.getElementById('search-input');
+    if(newSearchInput){
+      newSearchInput.focus();
+      if(searchSelStart != null && typeof newSearchInput.setSelectionRange === 'function'){
+        try{ newSearchInput.setSelectionRange(searchSelStart, searchSelEnd); }catch(e){}
+      }
+    }
+  }
+}
+
+function renderBrowseView(){
+  if(!menu.categories.length){ return '<div class="empty-state">No menu items yet.</div>'; }
+
+  let h = `<div class="toolbar">
+    <input type="text" id="search-input" placeholder="Search the menu…" value="${escapeHtml(query)}" oninput="query=this.value; render()">
+    <button class="spin-cta" onclick="openWheel()">Can't Decide? Spin for a Cocktail or Shooter</button>
+    ${tableSlug
+      ? `<div class="table-tag">Ordering for ${escapeHtml(tableLabel)} · <a href="#" onclick="leaveTable(); return false;" style="color:var(--text-dim);">change group</a></div>`
+      : `<button class="btn-secondary" style="margin-top:0;" onclick="openJoin()">Start a group order</button>`}
+  </div>`;
+
+  h += '<div class="cat-scroll">';
+  menu.categories.forEach(c=>{
+    h += `<button class="cat-pill ${activeCat===c.id && !query.trim()?'active':''}" onclick="selectCat('${c.id}')">${escapeHtml(c.name)}</button>`;
+  });
+  h += '</div>';
+
+  if(query.trim()){
+    const results = searchAllItems(query);
+    if(!results.length){
+      h += `<div class="empty-state">Nothing matches your search.</div>`;
+    } else {
+      results.forEach(({item, catName})=>{ h += itemCardHtml(item, catName); });
+    }
+  } else {
+    const cat = menu.categories.find(c=>c.id===activeCat) || menu.categories[0];
+    const items = cat ? cat.items : [];
+    if(!items.length){
+      h += `<div class="empty-state">Nothing in ${escapeHtml(cat.name)} yet.</div>`;
+    } else {
+      items.forEach(it=>{ h += itemCardHtml(it); });
+    }
+  }
+  return h;
+}
+
+function renderEditView(){
+  if(!editAuthed){
+    let dots = '';
+    for(let i=0;i<4;i++){ dots += `<div class="pin-dot ${i<pinEntry.length?'filled':''}"></div>`; }
+    let pad = '';
+    for(let n=1;n<=9;n++){ pad += `<button onclick="tryPinDigit(${n})">${n}</button>`; }
+    pad += `<button class="clear" onclick="pinClear()">Clear</button>`;
+    pad += `<button onclick="tryPinDigit(0)">0</button>`;
+    pad += `<span></span>`;
+    return `<div class="pin-wrap">
+      <h2 style="font-size:16px; margin:0;">Staff Access</h2>
+      <p>Enter the master PIN to edit the menu.</p>
+      <div class="pin-dots">${dots}</div>
+      <div class="pin-pad">${pad}</div>
+    </div>`;
+  }
+
+  let h = '';
+  menu.categories.forEach(cat=>{
+    h += `<div class="cat-block">
+      <div class="cat-block-head">
+        <h3>${escapeHtml(cat.name)}${cat.wheel?' · in wheel':''}</h3>
+        <button class="del-cat" onclick="removeCategory('${cat.id}')">Remove category</button>
+      </div>`;
+    if(cat.items.length===0){
+      h += `<div class="empty-state" style="padding:8px 0; text-align:left;">No items yet.</div>`;
+    } else {
+      cat.items.forEach(it=>{
+        h += `<div class="edit-item-row">
+          <div>
+            <div class="ei-name">${escapeHtml(it.name)}</div>
+            <div class="ei-price">${it.prices.map(p=>money(p.value)).join(' · ')}</div>
+          </div>
+          <div class="ei-actions">
+            <button onclick="openEditItem('${cat.id}','${it.id}')">Edit</button>
+            <button onclick="removeItem('${cat.id}','${it.id}')">Remove</button>
+          </div>
+        </div>`;
+      });
+    }
+    h += `<button class="btn-small" style="margin-top:8px;" onclick="openAddItem('${cat.id}')">+ Add item</button>`;
+    h += `</div>`;
+  });
+
+  h += `<div class="cat-block">
+    <label class="field-label" style="margin-top:0;">Add a new category</label>
+    <div class="new-cat-row">
+      <input type="text" placeholder="e.g. Seasonal Specials" value="${escapeHtml(newCatName)}" oninput="newCatName=this.value">
+      <button class="btn-small" onclick="addCategory()">Add</button>
+    </div>
+    <label class="checkbox-row"><input type="checkbox" id="newCatWheelCb" ${newCatWheel?'checked':''} onchange="newCatWheel=this.checked"> Include in the "Can't Decide?" wheel</label>
+  </div>`;
+  return h;
+}
+function renderItemSheet(){
+  const d = itemSheetDraft;
+  let h = `<div class="sheet-backdrop" onclick="closeItemSheet()"></div>
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 style="font-size:16px; margin:0 0 4px 0;">${itemSheetMode==='add'?'Add item':'Edit item'}</h2>
+    <label class="field-label">Name</label>
+    <input type="text" value="${escapeHtml(d.name)}" oninput="draftSetField('name',this.value)">
+    <label class="field-label">ABV (optional)</label>
+    <input type="text" placeholder="e.g. 40.0%" value="${escapeHtml(d.abv)}" oninput="draftSetField('abv',this.value)">`;
+  const cat = menu.categories.find(c=>c.id===itemSheetCatId);
+  if((cat && cat.wheel) || d.desc){
+    h += `<label class="field-label">Ingredients / description</label>
+    <textarea oninput="draftSetField('desc',this.value)">${escapeHtml(d.desc)}</textarea>`;
+  }
+  h += `<label class="field-label">Prices</label><div class="price-grid">`;
+  d.prices.forEach((p,i)=>{
+    h += `<div><label class="field-label" style="margin-top:0;">${escapeHtml(p.label)}</label>
+      <input type="number" step="0.05" value="${p.value}" oninput="draftSetPrice(${i},this.value)"></div>`;
+  });
+  h += `</div>
+    <button class="btn-primary" onclick="saveItemDraft()">${itemSheetMode==='add'?'Add item':'Save changes'}</button>`;
+  h += `<button class="btn-ghost" onclick="closeItemSheet()">Cancel</button>`;
+  h += `</div>`;
+  return h;
+}
+
+function renderWheelSheet(){
+  const cats = wheelCategories();
+  const wCat = menu.categories.find(c=>c.id===wheelCategory);
+  const wItems = wCat ? wCat.items.filter(i=>!is86(i)) : [];
+  const displayIndex = wheelResultIndex!=null ? wheelResultIndex : wheelCycleIndex;
+  const displayItem = wItems[displayIndex] || null;
+  const landed = wheelResultIndex !== null;
+
+  let h = `<div class="sheet-backdrop" onclick="closeWheel()"></div>
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 style="font-size:16px; margin:0 0 4px 0;">Can't Decide?</h2>
+    <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 14px 0;">Spin for a random cocktail or shooter.</p>`;
+
+  if(!wheelSpinning && !landed){
+    h += `<div class="wheel-cat-row">`;
+    cats.forEach(c=>{ h += `<button class="${wheelCategory===c.id?'active':''}" onclick="selectWheelCategory('${c.id}')">${escapeHtml(c.name)}</button>`; });
+    h += `</div>`;
+  }
+
+  h += `<div class="wheel-display ${wheelSpinning?'spinning':''}">
+    <div class="wheel-item-name">${displayItem?escapeHtml(displayItem.name):'—'}</div>
+    ${landed && displayItem ? `<div class="wheel-item-desc">${escapeHtml(displayItem.desc||'')}</div>
+    <div class="wheel-item-price">${displayItem.prices.map(p=>`${p.label} ${money(p.value)}`).join(' · ')}</div>` : ''}
+  </div>`;
+
+  if(!landed){ h += `<button class="btn-primary" onclick="spinWheel()" ${wheelSpinning?'disabled':''}>${wheelSpinning?'Spinning…':'Spin'}</button>`; }
+  else {
+    h += `<label class="field-label">Whose is this? (optional)</label>
+    <input type="text" placeholder="e.g. Sarah" value="${escapeHtml(wheelNameInput)}" oninput="wheelNameInput=this.value">`;
+    h += `<button class="btn-primary" onclick="addFromWheel()">Add to order</button>`;
+    h += `<button class="btn-secondary" onclick="spinAgain()">Spin again</button>`;
+  }
+  h += `<button class="btn-ghost" onclick="closeWheel()" ${wheelSpinning?'disabled':''}>Close</button>`;
+  h += `</div>`;
+  return h;
+}
+
+function renderOnboardingSheet(){
+  return `<div class="onboard-overlay">
+    <div class="onboard-mark">The Banshee Labyrinth</div>
+    <h2>How group ordering works</h2>
+    <p>Pick a name for your group — something fun and memorable beats
+    "Table 8." Try something like <strong>Banshee 209</strong>. Share it
+    with whoever you're buying a round for — anyone who types the same
+    name joins the same list.</p>
+    <p>Add whatever you want, spin the wheel if you can't decide.</p>
+    <p>This isn't a checkout. When you're ready, bring your phone to the
+    bar to confirm and pay — it just means the bartender gets an accurate
+    list instead of you trying to remember 8 orders.</p>
+    <button class="btn-primary" onclick="dismissOnboarding()">Got it — start ordering</button>
+  </div>`;
+}
+
+function renderJoinSheet(){
+  return `<div class="sheet-backdrop" onclick="closeJoin()"></div>
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 style="font-size:16px; margin:0 0 4px 0;">What's your group called?</h2>
+    <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 4px 0;">
+      Everyone who enters the same group name shares one order list — type exactly
+      what everyone else in your group will type.
+    </p>
+    <label class="field-label">Group name</label>
+    <input type="text" placeholder="e.g. Banshee 209" value="${escapeHtml(joinInput)}"
+      oninput="joinInput=this.value" onkeydown="if(event.key==='Enter')confirmJoin()">
+    <button class="btn-primary" onclick="confirmJoin()">Start ordering</button>
+    <p style="font-size:12px; color:var(--text-dim); text-align:center; margin:16px 0 2px 0;">— or —</p>
+    <button class="btn-secondary" ${generatingCode?'disabled':''} onclick="generateQuickCode()">
+      ${generatingCode?'Finding you a code…':'Get a quick 4-digit code instead'}
+    </button>
+    <button class="btn-ghost" onclick="closeJoin()">Cancel</button>
+  </div>`;
+}
+
+function renderQuickAddSheet(){
+  const item = quickAddItem;
+  let h = `<div class="sheet-backdrop" onclick="cancelQuickAdd()"></div>
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 style="font-size:16px; margin:0 0 4px 0;">${escapeHtml(item.name)}</h2>
+    <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 12px 0;">Which one?</p>
+    <div class="variant-row">`;
+  item.prices.forEach((p,i)=>{
+    h += `<button onclick="chooseVariant(${i})"><span>${escapeHtml(p.label)}</span><span>${money(p.value)}</span></button>`;
+  });
+  h += `</div><button class="btn-ghost" onclick="cancelQuickAdd()">Cancel</button></div>`;
+  return h;
+}
+
+function renderOrderSheet(){
+  let h = `<div class="sheet-backdrop" onclick="closeOrderSheet()"></div>
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 style="font-size:16px; margin:0 0 12px 0;">${escapeHtml(tableLabel)}'s Order</h2>`;
+  if(!tableOrder || !tableOrder.items.length){
+    h += `<div class="empty-state">Nothing added yet.</div>`;
+  } else {
+    tableOrder.items.forEach(l=>{
+      h += `<div class="order-line">
+        <div class="oinfo">
+          <div class="oname">${escapeHtml(l.name)}${l.variant?`<span class="ovariant"> · ${escapeHtml(l.variant)}</span>`:''}${l.ice?` <span class="ovariant">· ${escapeHtml(l.ice)}</span>`:''}${l.forName?` <span class="ovariant">· for ${escapeHtml(l.forName)}</span>`:''}</div>
+          <div class="oprice">${money(l.price)} each</div>
+        </div>
+        <div class="qty-ctrl">
+          <button onclick="changeOrderQty('${l.lineKey}',-1)">−</button>
+          <span class="qnum">${l.qty}</span>
+          <button onclick="changeOrderQty('${l.lineKey}',1)">+</button>
+        </div>
+      </div>`;
+    });
+    h += `<label class="field-label">Notes for the bar (optional)</label>
+    <textarea placeholder="Allergies, no ice, etc." oninput="setOrderNotes(this.value)" onblur="saveOrderNotesNow()">${escapeHtml(tableOrder.notes||'')}</textarea>
+    <div class="total-row"><span>Total</span><span class="amt">${money(orderTotal())}</span></div>
+    <p style="font-size:12px; color:var(--text-dim); margin-top:10px; line-height:1.5;">
+      This list is already visible on the bar's Orders screen — just bring it up
+      when you get there.
+    </p>
+    <button class="btn-danger" onclick="clearOrder()">Clear whole order</button>`;
+  }
+  h += `<button class="btn-secondary" onclick="closeOrderSheet()">Keep browsing</button>`;
+  h += `</div>`;
+  return h;
+}
+
+function renderDashSheet(){
+  const item = dashPromptItem;
+  let h = `<div class="sheet-backdrop" onclick="skipDash()"></div>
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 style="font-size:16px; margin:0 0 4px 0;">Add a mixer?</h2>
+    <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 12px 0;">
+      ${escapeHtml(item.name)} is charged neat — a dash of mixer is ${money(DASH_PRICE)} on top, rung up separately.
+    </p>
+    <div class="variant-row">`;
+  DASH_OPTIONS.forEach(d=>{
+    const out = !!availability[d.plu];
+    h += `<button ${out?'disabled style="opacity:0.5;"':''} onclick="addDash('${d.plu}','${escapeHtml(d.name)}')"><span>${escapeHtml(d.name)}${out?' (unavailable)':''}</span><span>${money(DASH_PRICE)}</span></button>`;
+  });
+  h += `</div><button class="btn-ghost" onclick="skipDash()">No mixer, just the spirit</button></div>`;
+  return h;
+}
+
+function renderIcePromptSheet(){
+  const item = icePromptItem;
+  return `<div class="sheet-backdrop" onclick="skipIce()"></div>
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 style="font-size:16px; margin:0 0 4px 0;">${escapeHtml(item.name)}</h2>
+    <p style="font-size:12.5px; color:var(--text-dim); margin:0 0 12px 0;">Ice or no ice?</p>
+    <div class="variant-row">
+      <button onclick="chooseIce('Ice')">Ice</button>
+      <button onclick="chooseIce('No Ice')">No Ice</button>
+    </div>
+    <button class="btn-ghost" onclick="skipIce()">Skip</button>
+  </div>`;
+}
+
+function renderBarScreen(){
+  let h = `<div class="bar-header">
+    <h1>Bar Orders</h1>
+    <a href="#" onclick="exitBarMode(); return false;" style="color:var(--text-dim); font-size:12px; text-decoration:underline;">Back to menu</a>
+  </div>
+  <div class="bar-list">`;
+  if(!barOrders.length){
+    h += `<div class="empty-state">No active group orders.</div>`;
+  } else {
+    barOrders.forEach(o=>{
+      const fresh = (Date.now()-o.updatedAt) < 60000;
+      const total = o.items.reduce((s,l)=>s+l.price*l.qty,0);
+      h += `<div class="bar-card ${fresh?'fresh':''}">
+        <div class="bar-card-head">
+          <span class="tname">${escapeHtml(o.displayLabel)}</span>
+          <span class="telapsed">${fresh?'Updated just now':'Updated '+fmtElapsed(o.updatedAt)}</span>
+        </div>`;
+      o.items.forEach(l=>{
+        h += `<div class="bar-line"><span><span class="bqty">${l.qty}×</span>${escapeHtml(l.name)}${l.variant?' — '+escapeHtml(l.variant):''}${l.ice?' — '+escapeHtml(l.ice):''}${l.forName?' <span class="bar-for">for '+escapeHtml(l.forName)+'</span>':''}</span><span>${money(l.price*l.qty)}</span></div>`;
+      });
+      if(o.notes){ h += `<div class="bar-notes">Note: ${escapeHtml(o.notes)}</div>`; }
+      h += `<div class="bar-total"><span>Total</span><span>${money(total)}</span></div>
+        <button class="bar-served-btn" onclick="markServed('${o.slug || slugify(o.displayLabel)}')">Mark served / clear</button>
+      </div>`;
+    });
+  }
+  h += `</div>`;
+  return h;
+}
+
+/* ================= INIT ================= */
+loadAll();
+</script>
+</body>
+</html>
