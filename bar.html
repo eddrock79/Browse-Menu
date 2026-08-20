@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#09080A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Banshee Orders">
+  <title>Banshee Bar Board</title>
+  <script>
+    (function(){
+      const standalone = window.navigator.standalone === true ||
+        (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+      if(standalone){
+        window.location.replace(new URL('./?bar=1', window.location.href).href);
+      }
+    })();
+  </script>
+  <style>
+    :root{color-scheme:dark; font-family:Inter,Arial,sans-serif; background:#09080A; color:#EDE7EA;}
+    *{box-sizing:border-box;}
+    body{margin:0; min-height:100vh; display:grid; place-items:center; background:#09080A; padding:28px;}
+    main{width:min(520px,100%); padding:34px 28px; border:1px solid #302633; border-radius:18px; background:#151116; box-shadow:0 18px 50px rgba(0,0,0,.45); text-align:center;}
+    h1{margin:0 0 14px; font-family:Oswald,Arial Narrow,Arial,sans-serif; font-size:32px; letter-spacing:.04em; text-transform:uppercase;}
+    .gold{color:#C9A15A;}
+    p{margin:0 auto 14px; max-width:400px; color:#B7AAB5; font-size:17px; line-height:1.55;}
+    .steps{margin-top:24px; padding:18px; border-radius:12px; background:#0E0C10; text-align:left; color:#EDE7EA;}
+    .steps div+div{margin-top:10px;}
+    .num{display:inline-grid; place-items:center; width:26px; height:26px; margin-right:9px; border-radius:50%; background:#C9A15A; color:#09080A; font-weight:800;}
+    .note{margin-top:20px; color:#7F737E; font-size:13px;}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Banshee <span class="gold">Bar Board</span></h1>
+    <p>This is the dedicated iPad Home Screen launcher for staff orders.</p>
+    <div class="steps">
+      <div><span class="num">1</span>Tap Safari’s Share button.</div>
+      <div><span class="num">2</span>Select <strong>Add to Home Screen</strong>.</div>
+      <div><span class="num">3</span>Open the new <strong>Banshee Orders</strong> icon.</div>
+    </div>
+    <p class="note">The installed icon will open the protected staff PIN and bar board automatically.</p>
+  </main>
+</body>
+</html>
