@@ -36,7 +36,28 @@
     return window.location.hash === '#bar';
   }
 
+  // Staff link: https://menu.hauntedpubs.co.uk/?bansheestaff=
+  // Opening it once on a device remembers that device as staff, so the
+  // two-hour customer window never applies to it. The staff tools still ask
+  // for the PIN. To forget a device, open the address with ?bansheestaff=off
+  const STAFF_PARAM = 'bansheestaff';
+  const STAFF_KEY = 'banshee-staff-device-v1';
+  function isStaffDevice(){
+    let param = null;
+    try{ param = new URL(window.location.href).searchParams.get(STAFF_PARAM); }catch(error){}
+    if(param === 'off'){
+      try{ window.localStorage.removeItem(STAFF_KEY); }catch(error){}
+      return false;
+    }
+    if(param !== null){
+      try{ window.localStorage.setItem(STAFF_KEY, '1'); }catch(error){}
+      return true;
+    }
+    try{ return window.localStorage.getItem(STAFF_KEY) === '1'; }catch(error){ return false; }
+  }
+
   function redirectToWebsite(){
+    if(isStaffDevice()) return;
     window.location.replace(REDIRECT_URL);
   }
 
@@ -70,7 +91,7 @@
       window.clearTimeout(expiryTimer);
       expiryTimer = null;
     }
-    if(isBarScreen() || staffSessionActive) return;
+    if(isBarScreen() || staffSessionActive || isStaffDevice()) return;
 
     const remaining = readExpiry() - Date.now();
     if(remaining <= 0){
@@ -84,7 +105,7 @@
   }
 
   function initialiseQrAccess(){
-    if(isBarScreen()) return;
+    if(isBarScreen() || isStaffDevice()) return;
 
     const url = new URL(window.location.href);
     const isFreshQrVisit = !url.searchParams.has(VISIT_MARKER);
